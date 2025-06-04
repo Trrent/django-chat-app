@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE = html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ChatApp</title>
+        <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
+    </head>
+    <body>
+        <aside id="sidebar">
+            <form id="login-form">
+                <h2>Вход в систему</h2>
+                <input type="text" id="login-username" placeholder="Username" required/>
+                <input type="password" id="login-password" placeholder="Password" required/>
+                <button type="submit">Войти</button>
+            </form>
+            <div id="login-error"></div>
+            <hr/>
+            
+            <ul id="room-list">
+                <h2>Мои комнаты</h2>
+            </ul>
+
+            <form id="create-room-form">
+                <input type="text" id="new-room-name" placeholder="Название комнаты" required/>
+                <button type="submit">Создать комнату</button>
+                <div id="create-room-error"></div>
+            </form>
+        </aside>
+
+        <main id="main-content">
+            <h2 id="current-room-title">Добро пожаловать в ChatApp!</h2>
+            <p>Выберите комнату для общения или создайте новую.</p>
+            <div id="chat-container">
+                <div id="messages"></div>
+                <div id="container-controls">
+                    <input type="text" id="chat-input" placeholder="Напишите сообщение..." disabled/>
+                    <button id="chat-send-btn" disabled>Отправить</button>
+                </div>
+            </div>
+        </main>
+
+        <script src="{% static 'js/app.js' %}"></script>
+    </body>
+</html> 
