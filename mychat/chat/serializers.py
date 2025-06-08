@@ -1,10 +1,5 @@
 from rest_framework import serializers
-from .models import Message, Room, Profile, Membership
-
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = ['nickname', 'avatar']
+from .models import Message, Room, Membership
 
 
 class RoomSerializer(serializers.ModelSerializer):

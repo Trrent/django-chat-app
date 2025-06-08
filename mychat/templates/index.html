@@ -8,16 +8,7 @@
         <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
     </head>
     <body>
-        <aside id="sidebar">
-            <form id="login-form">
-                <h2>Вход в систему</h2>
-                <input type="text" id="login-username" placeholder="Username" required/>
-                <input type="password" id="login-password" placeholder="Password" required/>
-                <button type="submit">Войти</button>
-            </form>
-            <div id="login-error"></div>
-            <hr/>
-            
+        <aside id="sidebar">            
             <ul id="room-list">
                 <h2>Мои комнаты</h2>
             </ul>
@@ -34,7 +25,7 @@
             <p>Выберите комнату для общения или создайте новую.</p>
             <div id="chat-container">
                 <div id="messages"></div>
-                <div id="container-controls">
+                <div id="chat-controls">
                     <input type="text" id="chat-input" placeholder="Напишите сообщение..." disabled/>
                     <button id="chat-send-btn" disabled>Отправить</button>
                 </div>

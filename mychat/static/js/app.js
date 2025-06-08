@@ -2,50 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessToken = localStorage.getItem('access_token');
 
     if (!accessToken) {
-        document.getElementById('login-form').style.display = 'block';
-
-        document.getElementById('sidebar').querySelectorAll('ul, form[id="create-room-form"]').forEach(el => el.style.display = 'none');
-        document.getElementById('main-content').style.display = 'none';
+        window.location.href = '/auth/'
     } else {
         enterLoggedInState();
     }
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('login-username').value.trim();
-        const password = document.getElementById('login-password').value;
-        if (!username || !password) return;
-
-        try {
-            const response = await fetch('/api/token/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Неверный логин или пароль');
-            }
-
-            const data = await response.json();
-            localStorage.setItem('access_token', data.access);
-            localStorage.setItem('refresh_token', data.refresh);
-
-            enterLoggedInState();
-        } catch (error) {
-            const errEl = document.getElementById('login-error');
-            errEl.textContent = error.message || 'Ошибка при входе';
-            errEl.style.display = 'block';
-        }
-    });
 });
 
 function enterLoggedInState() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('login-error').style.display = 'none';
-
     document.getElementById('room-list').style.display = 'block';
     document.getElementById('create-room-form').style.display = 'block';
 
@@ -145,35 +108,34 @@ let currentRoomName = null;
 let currentNick = null;
 
 
-async function ensureNick() {
-    if (!currentNick) {
-        const accessToken = localStorage.getItem('access_token');
-        try {
-            const response = await fetch('/api/profile/', {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                },
-            });
-            if (!response.ok) {
-                if (response.status === 401) {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('refresh_token');
-                    window.location.reload();
-                }
-                throw new Error('Ошибка при получении списка комнат');
-            }
+// async function ensureNick() {
+//     if (!currentNick) {
+//         const accessToken = localStorage.getItem('access_token');
+//         try {
+//             const response = await fetch('/api/profile/', {
+//                 headers: {
+//                     'Authorization': `Bearer ${accessToken}`,
+//                 },
+//             });
+//             if (!response.ok) {
+//                 if (response.status === 401) {
+//                     localStorage.removeItem('access_token');
+//                     localStorage.removeItem('refresh_token');
+//                     window.location.reload();
+//                 }
+//                 throw new Error('Ошибка при получении списка комнат');
+//             }
 
-            const data = await response.json();
-            return data.nickname;
-        } catch (error) {
-            console.error(error);
-        }
-    }
-}
+//             const data = await response.json();
+//             return data.nickname;
+//         } catch (error) {
+//             console.error(error);
+//         }
+//     }
+// }
 
 function selectRoom(roomId, roomName) {
-    const nickname = ensureNick();
-    console.log('Selected room:', roomId, roomName, nickname);
+    const token = localStorage.getItem('access_token');
     document.getElementById('current-room-title').textContent = 'Чат: ' + roomName;
 
     if (ws) {
@@ -181,7 +143,7 @@ function selectRoom(roomId, roomName) {
         ws = null;
     }
 
-    const url = `ws://${window.location.host}/ws/chat/?nick=${nickname}&room=${roomName}`;
+    const url = `ws://${window.location.host}/ws/chat/${roomId}/?token=${token}`;
     ws = new WebSocket(url);
 
     ws.onopen = () => {
@@ -209,10 +171,16 @@ function selectRoom(roomId, roomName) {
     };
 }
 
-function appendMessageToUI({ nickname, message, timestamp }) {
+function appendMessageToUI({ nickname, message, timestamp, msg_type }) {
     const messagesEl = document.getElementById('messages');
     const div = document.createElement('div');
-    div.textContent = `[${timestamp}] ${nickname}: ${message}`;
+    if (msg_type === 'info') {
+        div.textContent = `— ${message} —`;
+        div.style.fontStyle = 'italic';
+        div.style.textAlign = 'center';
+    } else {
+        div.textContent = `[${timestamp}] ${nickname}: ${message}`;
+    }
     messagesEl.append(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }

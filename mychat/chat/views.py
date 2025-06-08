@@ -1,18 +1,10 @@
-from rest_framework import viewsets, permissions, status, generics
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Message, Room, Profile, Membership
-from .serializers import RoomSerializer, ProfileSerializer, MembershipSerializer
+from .models import Message, Room, Membership
+from .serializers import RoomSerializer, MembershipSerializer
 
-
-class ProfileViewSet(generics.RetrieveUpdateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = ProfileSerializer
-    
-    def get_object(self):
-        return self.request.user.profile
-    
     
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()

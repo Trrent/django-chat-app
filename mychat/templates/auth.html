@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Вход / Регистрация - MyChat</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/auth.css' %}" />
+  </head>
+  <body>
+    <div id="auth-container">
+      <h2 id="auth-title">Войти</h2>
+
+      <form id="login-form" class="active">
+        <div class="error" id="login-error" style="display:none;"></div>
+        <input type="text" id="login-username" placeholder="Имя пользователя" required />
+        <input type="password" id="login-password" placeholder="Пароль" required />
+        <button type="submit">Войти</button>
+        <button type="button" class="switch-btn" id="to-register">Регистрация</button>
+      </form>
+
+      <form id="register-form">
+        <div class="error" id="register-error" style="display:none;"></div>
+        <input type="text" id="register-username" placeholder="Имя пользователя" required />
+        <input type="email" id="register-email" placeholder="E-mail" required />
+        <input type="password" id="register-password" placeholder="Пароль" required />
+        <input type="password" id="register-password-confirm" placeholder="Подтвердите пароль" required />
+        <button type="submit">Зарегистрироваться</button>
+        <button type="button" class="switch-btn" id="to-login">Войти</button>
+      </form>
+    </div>
+
+    <script src="{% static 'js/auth.js' %}"></script>
+  </body>
+</html>
