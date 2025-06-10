@@ -1,9 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.dateparse import parse_datetime
 
 from .models import Message, Room, Membership
-from .serializers import RoomSerializer, MembershipSerializer
+from .serializers import RoomSerializer, MembershipSerializer, MessageSerializer
 
     
 class RoomViewSet(viewsets.ModelViewSet):
@@ -23,6 +24,22 @@ class RoomViewSet(viewsets.ModelViewSet):
             {"message": f"You have joined the room '{room.name}'."},
             status=status.HTTP_200_OK
         )
+    
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        room = self.get_object()
+        qs = Message.objects.filter(room=room).order_by('-timestamp')
+
+        before = request.query_params.get('before')
+        if before:
+            dt = parse_datetime(before)
+            if dt is not None:
+                qs = qs.filter(timestamp__lt=dt)
+
+        page = qs[:50]
+        msgs = list(page)
+        serializer = MessageSerializer(msgs, many=True)
+        return Response(serializer.data)
     
     
 class MembershipViewSet(viewsets.ModelViewSet):

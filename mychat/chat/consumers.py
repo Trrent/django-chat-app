@@ -13,7 +13,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         
         self.user = self.scope['user']
-        self.nickname = await self._get_user_nickname(self.user)
+        self.username = await self._get_username(self.user)
         
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f"chat_{self.room_id}"        
@@ -32,10 +32,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         #         }
         #     )        
         
-        messages = await self.get_last_messages(100)
-        for msg in messages[::-1]:
-            serialized = await self.serialize_message(msg)
-            await self.chat_message(serialized)
+        # messages = await self.get_last_messages(100)
+        # for msg in messages[::-1]:
+        #     serialized = await self.serialize_message(msg)
+        #     await self.chat_message(serialized)
             
     @database_sync_to_async
     def serialize_message(self, msg):
@@ -47,8 +47,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }
             
     @database_sync_to_async
-    def _get_user_nickname(self, user):
-        return user.profile.nickname or user.username
+    def _get_username(self, user):
+        return user.username
             
     @database_sync_to_async
     def get_last_messages(self, count):
@@ -81,24 +81,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             {
                 "type": "chat.message",
-                "message": message,
-                "nickname": self.user.username,
-                "timestamp": timezone.now().strftime('%H:%M:%S'),
+                "text": message,
+                "username": self.user.username,
+                "timestamp": timezone.now().isoformat(),
                 "msg_type": Message.CHAT,
             }
         )
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
-                    'message': event['message'],
-                    'nickname': event['nickname'],
+                    'text': event['text'],
+                    'username': event['username'],
                     'timestamp': event['timestamp'],
-                    'msg_type': event['msg_type'],
-                    }))
-          
-    async def chat_info(self, event):
-        self.send(text_data=json.dumps({
-                    'message': event['message'],
-                    'timestamp': event['timestamp'],
-                    'msg_type': event['msg_type'],
+                    'type': event['msg_type'],
                     }))

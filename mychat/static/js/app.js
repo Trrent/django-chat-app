@@ -1,28 +1,58 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const accessToken = localStorage.getItem('access_token');
-
-    if (!accessToken) {
-        window.location.href = '/auth/'
-    } else {
-        enterLoggedInState();
+async function ensureValidToken() {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    const exp = Number(localStorage.getItem('accessExp')) * 1000;
+    if (!accessToken || !refreshToken || !exp) {
+        window.location.href = '/auth/';
+        return false;
     }
-});
 
-function enterLoggedInState() {
-    document.getElementById('room-list').style.display = 'block';
-    document.getElementById('create-room-form').style.display = 'block';
-
-    document.getElementById('main-content').style.display = 'block';
-
-    fetchMemberships();
+    const now = Date.now();
+    if (now > exp - 30 * 1000) {
+        try {
+            const res = await fetch('/api/auth/token/refresh/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh })
+            });
+            if (!res.ok) throw new Error('Refresh failed');
+            const data = await res.json();
+            const newExp = JSON.parse(atob(data.access.split('.')[1])).exp;
+            localStorage.setItem('accessToken', data.access);
+            localStorage.setItem('accessExp', newExp);
+            return true;
+        } catch (err) {
+            console.warn('Cannot refresh token:', err);
+            localStorage.clear();
+            window.location.href = '/auth/';
+            return false;
+        }
+    }
+    return true;
 }
 
+async function apiFetch(url, options = {}) {
+    await ensureValidToken();
+    const tokenToSend = localStorage.getItem('accessToken');
+    options.headers = {
+        ...(options.headers || {}),
+        'Authorization': 'Bearer ' + tokenToSend,
+    };
+    return fetch(url, options);
+}
+
+(async function init() {
+    const ok = await ensureValidToken();
+    if (!ok) return;
+    await fetchMemberships();
+})();
+
 async function fetchMemberships() {
-    const accessToken = localStorage.getItem('access_token');
+    const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) return;
 
     try {
-        const response = await fetch('/api/memberships/', {
+        const response = await fetch('/api/chat/memberships/', {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
             },
@@ -30,57 +60,54 @@ async function fetchMemberships() {
 
         if (!response.ok) {
             if (response.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
                 window.location.reload();
             }
             throw new Error('Ошибка при получении списка комнат');
         }
 
         const memberships = await response.json();
-        renderRoomList(memberships);
+        renderChatList(memberships);
     } catch (error) {
         console.error(error);
     }
 }
 
-function renderRoomList(memberships) {
-    const roomListEl = document.getElementById('room-list');
+function renderChatList(memberships) {
+    const roomListEl = document.getElementById('chat-list');
     roomListEl.innerHTML = '';
-    title = document.createElement('h2');
-    title.textContent = 'Мои комнаты';
-    roomListEl.append(title);
 
     memberships.forEach(membership => {
         const li = document.createElement('li');
         li.textContent = membership.room.name;
-        li.setAttribute('data-room-id', membership.room.id);
+        li.setAttribute('data-chat-id', membership.room.id);
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => {
-            selectRoom(membership.room.id, membership.room.name);
+            selectChat(membership.room.id, membership.room.name);
         });
         roomListEl.append(li);
     });
 }
 
-document.getElementById('create-room-form').addEventListener('submit', async (e) => {
+document.getElementById('create-chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const roomName = document.getElementById('new-room-name').value.trim();
-    const errorEl = document.getElementById('create-room-error');
+    const chatName = document.getElementById('new-chat-name').value.trim();
+    const errorEl = document.getElementById('create-chat-error');
     errorEl.style.display = 'none';
-    if (!roomName) return;
+    if (!chatName) return;
 
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
     try {
-        const createRes = await fetch('/api/rooms/', {
+        const createRes = await fetch('/api/chat/rooms/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
             },
-            body: JSON.stringify({ name: roomName })
+            body: JSON.stringify({ name: chatName })
         });
         if (createRes.status === 400) {
             const errData = await createRes.json();
@@ -88,13 +115,13 @@ document.getElementById('create-room-form').addEventListener('submit', async (e)
         }
         if (!createRes.ok) throw new Error('Ошибка создания комнаты');
 
-        const newRoom = await createRes.json();
+        const newChat = await createRes.json();
 
         await fetchMemberships();
 
-        selectRoom(newRoom.id, newRoom.name);
+        selectChat(newChat.id, newChat);
 
-        document.getElementById('new-room-name').value = '';
+        document.getElementById('new-chat-name').value = '';
         errorEl.style.display = 'none';
     } catch (err) {
         errorEl.textContent = err.message;
@@ -103,75 +130,127 @@ document.getElementById('create-room-form').addEventListener('submit', async (e)
 });
 
 let ws = null;
-let currentRoomId = null;
-let currentRoomName = null;
+let currentChatId = null;
+let currentChatName = null;
 let currentNick = null;
+let earliestTimestamp = null;
 
 
-// async function ensureNick() {
-//     if (!currentNick) {
-//         const accessToken = localStorage.getItem('access_token');
-//         try {
-//             const response = await fetch('/api/profile/', {
-//                 headers: {
-//                     'Authorization': `Bearer ${accessToken}`,
-//                 },
-//             });
-//             if (!response.ok) {
-//                 if (response.status === 401) {
-//                     localStorage.removeItem('access_token');
-//                     localStorage.removeItem('refresh_token');
-//                     window.location.reload();
-//                 }
-//                 throw new Error('Ошибка при получении списка комнат');
-//             }
+function selectChat(chatId, chat) {
+    document.querySelectorAll('#chat-list li').forEach(li => li.classList.remove('active'));
+    const li = document.querySelector(`#chat-list li[data-chat-id="${chatId}"]`);
+    li.classList.add('active');
 
-//             const data = await response.json();
-//             return data.nickname;
-//         } catch (error) {
-//             console.error(error);
-//         }
-//     }
-// }
+    document.getElementById('chat-placeholder').classList.add('hidden');
+    document.getElementById('chat-header').classList.remove('hidden');
+    document.getElementById('chat-container').classList.remove('hidden');
 
-function selectRoom(roomId, roomName) {
-    const token = localStorage.getItem('access_token');
-    document.getElementById('current-room-title').textContent = 'Чат: ' + roomName;
 
+    document.getElementById('chat-peer-name').textContent = chat.name;
+    document.getElementById('chat-avatar').src = chat.avatar_url || '/static/img/default-avatar.png';
+    document.getElementById('chat-peer-status').textContent = chat.is_online ? 'online' : 'offline';
+
+    const messagesEl = document.getElementById('messages');
+    messagesEl.innerHTML = '';
+    earliestTimestamp = null;
+    messagesEl.removeEventListener('scroll', onScrollHistory);
+    messagesEl.addEventListener('scroll', onScrollHistory);
+
+    loadChatHistory(chatId).then(() => {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+
+    currentChatId = chatId;
+    openWebSocketForChat(chatId);
+}
+
+async function loadChatHistory(chatId) {
+    const messagesEl = document.getElementById('messages');
+
+    let url = `/api/chat/rooms/${chatId}/messages/`;
+    if (earliestTimestamp) {
+        url += `?before=${encodeURIComponent(earliestTimestamp)}`;
+    }
+
+    try {
+        const res = await apiFetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const history = await res.json();
+        if (!history.length) return;
+
+        earliestTimestamp = history[history.length - 1].timestamp;
+
+        const oldScrollHeight = messagesEl.scrollHeight;
+
+        history.forEach(msg => {
+            const div = document.createElement('div');
+            if (msg.type === 'info') {
+                div.textContent = `— ${msg.text} —`;
+                div.style.fontStyle = 'italic';
+                div.style.textAlign = 'center';
+            } else {
+                div.textContent = `[${msg.timestamp}] ${msg.username}: ${msg.text}`;
+            }
+            messagesEl.prepend(div);
+        });
+        const newScrollHeight = messagesEl.scrollHeight;
+        messagesEl.scrollTop = newScrollHeight - oldScrollHeight;
+    } catch (err) {
+        console.error('Ошибка загрузки истории:', err);
+    }
+    
+}
+
+async function onScrollHistory() {
+    const messagesEl = document.getElementById('messages');
+    if (messagesEl.scrollTop < 50) {
+        await loadChatHistory(currentChatId);
+    }
+}
+
+function openWebSocketForChat(chatId) {
     if (ws) {
         ws.close();
         ws = null;
     }
 
-    const url = `ws://${window.location.host}/ws/chat/${roomId}/?token=${token}`;
+    const token = localStorage.getItem('accessToken');
+    const url = `ws://${window.location.host}/ws/chat/${chatId}/?token=${encodeURIComponent(token)}`;
     ws = new WebSocket(url);
 
     ws.onopen = () => {
-        document.getElementById('chat-input').disabled = false;
-        document.getElementById('chat-send-btn').disabled = false;
-        document.getElementById('messages').innerHTML = '';
+        console.log('WS открыт для чата', chatId);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
+        let data;
         try {
-            const data = JSON.parse(event.data);
-            appendMessageToUI(data);
-        } catch (e) {
-            appendRawTextToUI(event.data);
+            data = JSON.parse(event.data);
+        } catch {
+            return appendRawTextToUI(event.data);
+        }
+        appendMessageToUI({
+            username: data.username,
+            message: data.text,
+            timestamp: data.timestamp,
+            msg_type: data.msg_type
+        });
+    };
+
+    ws.onclose = evt => {
+        console.log('WS закрыт', evt);
+        if (evt.code !== 1000 && currentChatId) {
+            setTimeout(() => openWebSocketForChat(currentChatId), 1000);
         }
     };
 
-    ws.onclose = () => {
-        document.getElementById('chat-input').disabled = true;
-        document.getElementById('chat-send-btn').disabled = true;
-    };
-
-    ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
+    ws.onerror = err => {
+        console.error('WS ошибка', err);
     };
 }
 
-function appendMessageToUI({ nickname, message, timestamp, msg_type }) {
+
+function appendMessageToUI({ username, message, timestamp, msg_type }) {
     const messagesEl = document.getElementById('messages');
     const div = document.createElement('div');
     if (msg_type === 'info') {
@@ -179,7 +258,7 @@ function appendMessageToUI({ nickname, message, timestamp, msg_type }) {
         div.style.fontStyle = 'italic';
         div.style.textAlign = 'center';
     } else {
-        div.textContent = `[${timestamp}] ${nickname}: ${message}`;
+        div.textContent = `[${timestamp}] ${username}: ${message}`;
     }
     messagesEl.append(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;

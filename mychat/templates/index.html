@@ -1,37 +1,48 @@
 {% load static %}
-<!DOCTYPE = html>
+<!DOCTYPE html>
 <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ChatApp</title>
-        <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
-    </head>
-    <body>
-        <aside id="sidebar">            
-            <ul id="room-list">
-                <h2>Мои комнаты</h2>
-            </ul>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChatApp</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h3>Мои чаты</h3>
+        <ul id="chat-list"></ul>
 
-            <form id="create-room-form">
-                <input type="text" id="new-room-name" placeholder="Название комнаты" required/>
-                <button type="submit">Создать комнату</button>
-                <div id="create-room-error"></div>
-            </form>
-        </aside>
+        <form id="create-chat-form">
+          <input type="text" id="new-chat-name" placeholder="Название комнаты" required />
+          <button type="submit">Создать комнату</button>
+          <div id="create-chat-error"></div>
+        </form>
+      </aside>
 
-        <main id="main-content">
-            <h2 id="current-room-title">Добро пожаловать в ChatApp!</h2>
-            <p>Выберите комнату для общения или создайте новую.</p>
-            <div id="chat-container">
-                <div id="messages"></div>
-                <div id="chat-controls">
-                    <input type="text" id="chat-input" placeholder="Напишите сообщение..." disabled/>
-                    <button id="chat-send-btn" disabled>Отправить</button>
-                </div>
-            </div>
-        </main>
+      <main id="main-panel">
+        <div id="chat-header" class="hidden">
+          <img id="chat-avatar" src="" alt="Аватар" />
+          <div>
+            <h4 id="chat-peer-name"></h4>
+            <span id="chat-peer-status"></span>
+          </div>
+        </div>
 
-        <script src="{% static 'js/app.js' %}"></script>
-    </body>
-</html> 
+        <div id="chat-placeholder">
+          <h2>Добро пожаловать в ChatApp!</h2>
+          <h3>Выберите комнату для общения или создайте новую.</h3>
+        </div>
+
+        <div id="chat-container" class="hidden">
+          <div id="messages"></div>
+          <div id="chat-controls">
+            <input type="text" id="chat-input" placeholder="Напишите сообщение..."/>
+            <button id="chat-send-btn">Отправить</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="{% static 'js/app.js' %}"></script>
+  </body>
+</html>
